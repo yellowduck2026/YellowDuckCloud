@@ -1,15 +1,15 @@
-# Project: YellowDuckCloud
+# Project: YellowDuckCloud-Client
 # Makefile created by Dev-C++ 6.7.5
 
 CPP      = g++.exe -D__DEBUG__
 CC       = gcc.exe -D__DEBUG__
 WINDRES  = windres.exe
-OBJ      = server.o
-LINKOBJ  = server.o
-LIBS     = -L"C:/Program Files (x86)/Dev-Cpp/MinGW32/lib" -L"C:/Program Files (x86)/Dev-Cpp/MinGW32/mingw32/lib" -g3 -lws2_32 -static
+OBJ      = client.o
+LINKOBJ  = client.o
+LIBS     = -L"C:/Program Files (x86)/Dev-Cpp/MinGW32/lib" -L"C:/Program Files (x86)/Dev-Cpp/MinGW32/mingw32/lib" -g3 -lws2_32 -lcomctl32 -lcomdlg32 -lshell32 -static
 INCS     = -I"c:/program files (x86)/dev-cpp/mingw32/lib/gcc/mingw32/9.2.0/include" -I"c:/program files (x86)/dev-cpp/mingw32/include" -I"c:/program files (x86)/dev-cpp/mingw32/lib/gcc/mingw32/9.2.0/include-fixed"
 CXXINCS  = -I"c:/program files (x86)/dev-cpp/mingw32/lib/gcc/mingw32/9.2.0/include/c++" -I"c:/program files (x86)/dev-cpp/mingw32/lib/gcc/mingw32/9.2.0/include/c++/mingw32" -I"c:/program files (x86)/dev-cpp/mingw32/lib/gcc/mingw32/9.2.0/include/c++/backward" -I"c:/program files (x86)/dev-cpp/mingw32/lib/gcc/mingw32/9.2.0/include" -I"c:/program files (x86)/dev-cpp/mingw32/include" -I"c:/program files (x86)/dev-cpp/mingw32/lib/gcc/mingw32/9.2.0/include-fixed"
-BIN      = YellowDuckCloud.exe
+BIN      = YellowDuckCloud-Client.exe
 CXXFLAGS = $(CXXINCS) -Wall -Wextra -g3
 ENCODINGS = -finput-charset=utf-8 -fexec-charset=gbk
 CFLAGS   = $(INCS) -Wall -Wextra -g3
@@ -25,5 +25,5 @@ clean: clean-custom
 $(BIN): $(OBJ)
 	$(CPP) $(LINKOBJ) -o "$(BIN)" $(LIBS)
 
-server.o: server.cpp
-	$(CPP) -c server.cpp -o server.o $(CXXFLAGS) 
+client.o: client.cpp
+	$(CPP) -c client.cpp -o client.o $(CXXFLAGS) 
