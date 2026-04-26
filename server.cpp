@@ -10,18 +10,13 @@
 #include <process.h>
 #include <time.h>
 #include <ctype.h>
-
 #pragma comment(lib, "ws2_32.lib")
-
 #define PORT 9999
 #define BUFFER_SIZE 4096
 #define SERVER_FILES_DIR "server_files"
-#define MAX_CLIENTS 10
-#define MAX_USER_SPACE (1024ULL * 1024 * 1024) // 1GB
+#define MAX_USER_SPACE (1024ULL * 1024 * 1024)
 #define USER_DB_FILE "user_database.txt"
 #define MAX_LINE_LENGTH 1024
-
-// 64 Î»ÍøÂç×Ö½ÚÐò×ª»»
 uint64_t htonll(uint64_t val) {
     uint64_t result = 0;
     unsigned char *data = (unsigned char *)&result;
@@ -35,7 +30,6 @@ uint64_t htonll(uint64_t val) {
     data[7] = val & 0xFF;
     return result;
 }
-
 uint64_t ntohll(uint64_t val) {
     unsigned char *data = (unsigned char *)&val;
     return ((uint64_t)data[0] << 56) |
@@ -47,8 +41,6 @@ uint64_t ntohll(uint64_t val) {
            ((uint64_t)data[6] << 8) |
            (uint64_t)data[7];
 }
-
-// ¼ì²éÓÃ»§ÃûÊÇ·ñºÏ·¨
 int is_valid_username(const char *name) {
     if (strlen(name) == 0 || strlen(name) > 50) return 0;
     const char *invalid_chars = "/\\:*?\"<>| ";
@@ -57,39 +49,28 @@ int is_valid_username(const char *name) {
     }
     return 1;
 }
-
-// ¼ì²éÓÊÏäÊÇ·ñºÏ·¨
 int is_valid_email(const char *email) {
     if (strlen(email) == 0 || strlen(email) > 100) return 0;
-    
     int at_count = 0;
     int dot_after_at = 0;
-    
     for (int i = 0; email[i]; i++) {
         if (email[i] == '@') at_count++;
         if (at_count > 0 && email[i] == '.') {
             if (i > 0 && email[i-1] != '@') dot_after_at = 1;
         }
     }
-    
     return (at_count == 1 && dot_after_at);
 }
-
-// ¼ì²éÃÜÂëÊÇ·ñºÏ·¨
 int is_valid_password(const char *password) {
     if (strlen(password) < 6 || strlen(password) > 50) return 0;
-    
     int has_upper = 0, has_lower = 0, has_digit = 0;
     for (int i = 0; password[i]; i++) {
         if (isupper(password[i])) has_upper = 1;
         if (islower(password[i])) has_lower = 1;
         if (isdigit(password[i])) has_digit = 1;
     }
-    
     return (has_upper && has_lower && has_digit);
 }
-
-// ¸¨Öúº¯Êý£º»ñÈ¡ÎÄ¼þ´óÐ¡×Ö·û´®
 const char* get_file_size_string(uint64_t size) {
     static char buf[32];
     if (size > 1024 * 1024 * 1024) {
@@ -103,12 +84,9 @@ const char* get_file_size_string(uint64_t size) {
     }
     return buf;
 }
-
-// ¼ì²éÓÃ»§ÊÇ·ñ´æÔÚ
 int user_exists(const char *username) {
     FILE *fp = fopen(USER_DB_FILE, "r");
     if (!fp) return 0;
-    
     char line[MAX_LINE_LENGTH];
     while (fgets(line, sizeof(line), fp)) {
         char db_username[256], db_email[256], db_password[256];
@@ -119,16 +97,12 @@ int user_exists(const char *username) {
             return 1;
         }
     }
-    
     fclose(fp);
     return 0;
 }
-
-// ¼ì²éÓÊÏäÊÇ·ñÒÑ×¢²á
 int email_exists(const char *email) {
     FILE *fp = fopen(USER_DB_FILE, "r");
     if (!fp) return 0;
-    
     char line[MAX_LINE_LENGTH];
     while (fgets(line, sizeof(line), fp)) {
         char db_username[256], db_email[256], db_password[256];
@@ -139,66 +113,48 @@ int email_exists(const char *email) {
             return 1;
         }
     }
-    
     fclose(fp);
     return 0;
 }
-
-// ÓÃ»§×¢²á
 int register_user(const char *username, const char *email, const char *password) {
     if (user_exists(username)) {
-        return 0; // ÓÃ»§ÒÑ´æÔÚ
+        return 0;
     }
-    
     if (email_exists(email)) {
-        return 0; // ÓÊÏäÒÑ×¢²á
+        return 0;
     }
-    
     FILE *fp = fopen(USER_DB_FILE, "a");
     if (!fp) return 0;
-    
     fprintf(fp, "%s|%s|%s\n", username, email, password);
     fclose(fp);
-    
-    // ´´½¨ÓÃ»§Ä¿Â¼
     char dir_path[512];
     sprintf(dir_path, "%s/%s", SERVER_FILES_DIR, username);
     _mkdir(dir_path);
-    
     return 1;
 }
-
-// ÓÃ»§µÇÂ¼ÑéÖ¤
 int verify_login(const char *username, const char *password) {
     FILE *fp = fopen(USER_DB_FILE, "r");
     if (!fp) return 0;
-    
     char line[MAX_LINE_LENGTH];
     while (fgets(line, sizeof(line), fp)) {
         char db_username[256], db_email[256], db_password[256];
         sscanf(line, "%255[^|]|%255[^|]|%255[^\n]", 
                db_username, db_email, db_password);
-        
         if (strcmp(db_username, username) == 0 && 
             strcmp(db_password, password) == 0) {
             fclose(fp);
             return 1;
         }
     }
-    
     fclose(fp);
     return 0;
 }
-
-// »ñÈ¡ÓÃ»§ÒÑÓÃ¿Õ¼ä´óÐ¡
 uint64_t get_user_used_space(const char *username) {
     char path[512];
     sprintf(path, "%s/%s/*.*", SERVER_FILES_DIR, username);
-    
     uint64_t total_size = 0;
     struct _finddata_t c_file;
     long hFile = _findfirst(path, &c_file);
-    
     if (hFile != -1) {
         do {
             if (strcmp(c_file.name, ".") != 0 && strcmp(c_file.name, "..") != 0 && 
@@ -208,140 +164,103 @@ uint64_t get_user_used_space(const char *username) {
         } while (_findnext(hFile, &c_file) == 0);
         _findclose(hFile);
     }
-    
     return total_size;
 }
-
-// »ñÈ¡ÓÃ»§¿Õ¼äÊ¹ÓÃÇé¿ö×Ö·û´®
 void get_user_space_info(const char *username, char *info_buf, int buf_size) {
     uint64_t used_space = get_user_used_space(username);
     uint64_t free_space = (used_space > MAX_USER_SPACE) ? 0 : (MAX_USER_SPACE - used_space);
     double used_percent = (double)used_space * 100.0 / MAX_USER_SPACE;
-    
-    sprintf(info_buf, "ÓÃ»§: %s\nÒÑÓÃ¿Õ¼ä: %s / 1.00 GB\n¿ÉÓÃ¿Õ¼ä: %s\nÊ¹ÓÃÂÊ: %.2f%%\n",
+    sprintf(info_buf, " Ã» : %s\n   Ã¿Õ¼ : %s / 1.00 GB\n   Ã¿Õ¼ : %s\nÊ¹    : %.2f%%\n",
             username,
             get_file_size_string(used_space),
             get_file_size_string(free_space),
             used_percent);
 }
-
-// ¼ì²éÓÃ»§ÊÇ·ñÓÐ×ã¹»¿Õ¼äÉÏ´«ÐÂÎÄ¼þ
 int check_user_space(const char *username, uint64_t new_file_size, char *error_msg, int msg_len) {
     uint64_t used_space = get_user_used_space(username);
     uint64_t total_needed = used_space + new_file_size;
-    
     if (total_needed > MAX_USER_SPACE) {
         uint64_t free_space = MAX_USER_SPACE - used_space;
-        sprintf(error_msg, "¿Õ¼ä²»×ã£¡ÐèÒª: %s, ¿ÉÓÃ: %s", 
+        sprintf(error_msg, " Õ¼ä²» ã£¡  Òª: %s,     : %s", 
                 get_file_size_string(new_file_size),
                 get_file_size_string(free_space));
         return 0;
     }
-    
     return 1;
 }
-
-// Ïß³Ì²ÎÊý½á¹¹Ìå
 typedef struct {
     SOCKET client_socket;
     struct sockaddr_in client_addr;
 } ClientInfo;
-
-// ´¦Àí¿Í»§¶ËÁ¬½ÓµÄÏß³Ìº¯Êý
 void client_thread(void *param) {
     ClientInfo *info = (ClientInfo *)param;
     SOCKET client_socket = info->client_socket;
     struct sockaddr_in client_addr = info->client_addr;
-    
     char username[256] = {0};
     char buffer[BUFFER_SIZE];
     int bytes_received;
     char client_ip[16];
-    
     strcpy(client_ip, inet_ntoa(client_addr.sin_addr));
     int client_port = ntohs(client_addr.sin_port);
-    
-    printf("[+] ¿Í»§¶ËÒÑÁ¬½Ó: %s:%d\n", client_ip, client_port);
-    
-    // ÊÍ·Å²ÎÊýÄÚ´æ
+    printf("[+]  Í»         : %s:%d\n", client_ip, client_port);
     free(info);
-    
     while (1) {
         memset(buffer, 0, BUFFER_SIZE);
         bytes_received = recv(client_socket, buffer, BUFFER_SIZE - 1, 0);
-        
         if (bytes_received <= 0) {
-            printf("[-] ¿Í»§¶Ë¶Ï¿ªÁ¬½Ó: %s\n", username[0] ? username : "unknown");
+            printf("[-]  Í»  Ë¶Ï¿     : %s\n", username[0] ? username : "unknown");
             break;
         }
-        
         buffer[bytes_received] = '\0';
-        
-        // ¼ì²éÃüÁîÀàÐÍ
         if (strncmp(buffer, "register ", 9) == 0) {
             char reg_username[256], reg_email[256], reg_password[256];
             sscanf(buffer + 9, "%255s %255s %255s", reg_username, reg_email, reg_password);
-            
             if (!is_valid_username(reg_username)) {
-                send(client_socket, "ERROR: ÓÃ»§Ãû°üº¬·Ç·¨×Ö·û", 28, 0);
+                send(client_socket, "ERROR:  Ã»        Ç·  Ö· ", 28, 0);
                 continue;
             }
-            
             if (!is_valid_email(reg_email)) {
-                send(client_socket, "ERROR: ÓÊÏä¸ñÊ½²»ÕýÈ·", 24, 0);
+                send(client_socket, "ERROR:      Ê½    È·", 24, 0);
                 continue;
             }
-            
             if (!is_valid_password(reg_password)) {
-                send(client_socket, "ERROR: ÃÜÂëÖÁÉÙ6Î»£¬Ðè°üº¬´óÐ¡Ð´×ÖÄ¸ºÍÊý×Ö", 50, 0);
+                send(client_socket, "ERROR:         6Î»         Ð¡Ð´  Ä¸      ", 50, 0);
                 continue;
             }
-            
             if (register_user(reg_username, reg_email, reg_password)) {
                 send(client_socket, "REGISTER_SUCCESS", 16, 0);
             } else {
-                send(client_socket, "ERROR: ÓÃ»§Ãû»òÓÊÏäÒÑ´æÔÚ", 28, 0);
+                send(client_socket, "ERROR:  Ã»          Ñ´   ", 28, 0);
             }
-            
         } else if (strncmp(buffer, "login ", 6) == 0) {
             char login_username[256], login_password[256];
             sscanf(buffer + 6, "%255s %255s", login_username, login_password);
-            
             if (verify_login(login_username, login_password)) {
                 strcpy(username, login_username);
                 send(client_socket, "LOGIN_SUCCESS", 13, 0);
-                printf("[%s] ÓÃ»§µÇÂ¼³É¹¦\n", username);
+                printf("[%s]  Ã»   Â¼ É¹ \n", username);
             } else {
-                send(client_socket, "ERROR: ÓÃ»§Ãû»òÃÜÂë´íÎó", 26, 0);
+                send(client_socket, "ERROR:  Ã»            ", 26, 0);
             }
-            
         } else if (strlen(username) == 0) {
-            // Î´µÇÂ¼×´Ì¬£¬Ö»ÄÜÖ´ÐÐ×¢²áºÍµÇÂ¼
-            send(client_socket, "ERROR: ÇëÏÈµÇÂ¼", 18, 0);
+            send(client_socket, "ERROR:    Èµ Â¼", 18, 0);
             continue;
-            
         } else if (strncmp(buffer, "list", 4) == 0) {
             char target_user[256] = {0};
             sscanf(buffer + 5, "%255s", target_user);
-            
             if (strlen(target_user) == 0) {
                 strcpy(target_user, username);
             }
-            
             if (!is_valid_username(target_user)) {
-                send(client_socket, "ERROR: ÓÃ»§ÃûÎÞÐ§", 20, 0);
+                send(client_socket, "ERROR:  Ã»     Ð§", 20, 0);
                 continue;
             }
-            
             char user_path[512];
             sprintf(user_path, "%s/%s", SERVER_FILES_DIR, target_user);
-            
-            // ¼ì²éÄ¿Â¼ÊÇ·ñ´æÔÚ
             struct _stat st;
             if (_stat(user_path, &st) != 0) {
                 char space_info[512];
-                sprintf(space_info, "ÓÃ»§ %s »¹Ã»ÓÐÈÎºÎÎÄ¼þ\n¿Õ¼äÏÞÖÆ: 1.00 GB\n¿ÉÓÃ¿Õ¼ä: 1.00 GB (100.00%%)\n", target_user);
-                
+                sprintf(space_info, " Ã»  %s   Ã»   Îº  Ä¼ \n Õ¼     : 1.00 GB\n   Ã¿Õ¼ : 1.00 GB (100.00%%)\n", target_user);
                 send(client_socket, "OK", 2, 0);
                 uint64_t len = strlen(space_info);
                 uint64_t net_len = htonll(len);
@@ -349,22 +268,17 @@ void client_thread(void *param) {
                 send(client_socket, space_info, len, 0);
                 continue;
             }
-            
-            // Éú³ÉÎÄ¼þÁÐ±í
             char file_list_text[BUFFER_SIZE * 10] = {0};
             struct _finddata_t c_file;
             long hFile;
-            
             char space_info[256];
             get_user_space_info(target_user, space_info, sizeof(space_info));
             strcat(file_list_text, space_info);
             strcat(file_list_text, "==================================================\n");
-            strcat(file_list_text, "ÎÄ¼þÃû                    ´óÐ¡          ÐÞ¸ÄÊ±¼ä\n");
+            strcat(file_list_text, " Ä¼                         Ð¡           Þ¸ Ê±  \n");
             strcat(file_list_text, "==================================================\n");
-            
             sprintf(user_path, "%s/%s/*.*", SERVER_FILES_DIR, target_user);
             hFile = _findfirst(user_path, &c_file);
-            
             int file_count = 0;
             uint64_t total_size = 0;
             if (hFile != -1) {
@@ -372,7 +286,6 @@ void client_thread(void *param) {
                     if (strcmp(c_file.name, ".") != 0 && strcmp(c_file.name, "..") != 0 && 
                         !(c_file.attrib & _A_SUBDIR)) {
                         char line[512];
-                        
                         struct tm *timeinfo;
                         time_t rawtime = c_file.time_write;
                         timeinfo = localtime(&rawtime);
@@ -382,7 +295,6 @@ void client_thread(void *param) {
                         } else {
                             strcpy(time_str, "Unknown");
                         }
-                        
                         sprintf(line, "%-20s  %10s  %s\n", 
                             c_file.name,
                             get_file_size_string(c_file.size),
@@ -395,77 +307,58 @@ void client_thread(void *param) {
                 } while (_findnext(hFile, &c_file) == 0);
                 _findclose(hFile);
             }
-            
             if (file_count == 0) {
-                strcat(file_list_text, "(ÎÞÎÄ¼þ)\n");
+                strcat(file_list_text, "(   Ä¼ )\n");
             } else {
                 char summary[256];
-                sprintf(summary, "\n×Ü¼Æ: %d ¸öÎÄ¼þ, ×Ü´óÐ¡: %s\n", 
+                sprintf(summary, "\n Ü¼ : %d    Ä¼ ,  Ü´ Ð¡: %s\n", 
                         file_count, get_file_size_string(total_size));
                 strcat(file_list_text, summary);
             }
-            
             send(client_socket, "OK", 2, 0);
             uint64_t len = strlen(file_list_text);
             uint64_t net_len = htonll(len);
             send(client_socket, (char*)&net_len, 8, 0);
             send(client_socket, file_list_text, len, 0);
-            
         } else if (strncmp(buffer, "save ", 5) == 0) {
             char user[256] = {0}, filename[256] = {0};
             sscanf(buffer + 5, "%255s %255s", user, filename);
-            
             if (strlen(user) == 0 || strlen(filename) == 0) {
-                send(client_socket, "ERROR: ÃüÁî¸ñÊ½´íÎó", 22, 0);
+                send(client_socket, "ERROR:      Ê½    ", 22, 0);
                 continue;
             }
-            
             if (strcmp(user, username) != 0) {
-                send(client_socket, "ERROR: Ö»ÄÜ²Ù×÷×Ô¼ºµÄÎÄ¼þ", 28, 0);
+                send(client_socket, "ERROR: Ö» Ü²    Ô¼    Ä¼ ", 28, 0);
                 continue;
             }
-            
-            // ´´½¨ÓÃ»§Ä¿Â¼
             char path[512];
             sprintf(path, "%s/%s", SERVER_FILES_DIR, username);
             _mkdir(path);
-            
-            // ½ÓÊÕÎÄ¼þ´óÐ¡
             uint64_t file_size_net;
             int recv_result = recv(client_socket, (char*)&file_size_net, 8, 0);
             if (recv_result != 8) {
-                send(client_socket, "ERROR: ½ÓÊÕÎÄ¼þ´óÐ¡Ê§°Ü", 28, 0);
+                send(client_socket, "ERROR:      Ä¼   Ð¡Ê§  ", 28, 0);
                 continue;
             }
-            
             uint64_t file_size = ntohll(file_size_net);
-            printf("[%s] ×¼±¸½ÓÊÕÎÄ¼þ: %s, ´óÐ¡: %s\n", 
+            printf("[%s] ×¼       Ä¼ : %s,   Ð¡: %s\n", 
                    username, filename, get_file_size_string(file_size));
-            
-            // ¼ì²éÓÃ»§¿Õ¼ä
             char space_error[256];
             if (!check_user_space(username, file_size, space_error, sizeof(space_error))) {
                 send(client_socket, space_error, strlen(space_error), 0);
                 continue;
             }
-            
-            // ·¢ËÍÈ·ÈÏ£¬×¼±¸½ÓÊÕÎÄ¼þ
             send(client_socket, "OK ready", 8, 0);
-            
             char full_path[512];
             sprintf(full_path, "%s/%s/%s", SERVER_FILES_DIR, username, filename);
-            
             FILE *fp = fopen(full_path, "wb");
             if (!fp) {
-                send(client_socket, "ERROR: ÎÞ·¨´´½¨ÎÄ¼þ", 22, 0);
+                send(client_socket, "ERROR:  Þ·      Ä¼ ", 22, 0);
                 continue;
             }
-            
             char file_buffer[BUFFER_SIZE];
             uint64_t received = 0;
             int success = 1;
-            
-            // ½ÓÊÕÎÄ¼þÊý¾Ý
             while (received < file_size) {
                 uint64_t remaining = file_size - received;
                 int to_recv = (remaining > BUFFER_SIZE) ? BUFFER_SIZE : (int)remaining;
@@ -477,20 +370,17 @@ void client_thread(void *param) {
                 fwrite(file_buffer, 1, n, fp);
                 received += n;
             }
-            
             fclose(fp);
-            
             if (success && received == file_size) {
                 struct _stat st;
                 if (_stat(full_path, &st) == 0) {
                     uint64_t actual_size = st.st_size;
                     if (actual_size != file_size) {
-                        send(client_socket, "ERROR: ÎÄ¼þ´óÐ¡²»Æ¥Åä", 24, 0);
+                        send(client_socket, "ERROR:  Ä¼   Ð¡  Æ¥  ", 24, 0);
                         remove(full_path);
                     } else {
-                        printf("[%s] ÎÄ¼þ±£´æ³É¹¦: %s, ´óÐ¡: %s\n", 
+                        printf("[%s]  Ä¼     É¹ : %s,   Ð¡: %s\n", 
                                username, filename, get_file_size_string(file_size));
-                        
                         char space_info[256];
                         get_user_space_info(username, space_info, sizeof(space_info));
                         char success_msg[512];
@@ -498,57 +388,43 @@ void client_thread(void *param) {
                         send(client_socket, success_msg, strlen(success_msg), 0);
                     }
                 } else {
-                    send(client_socket, "ERROR: ÎÄ¼þÑéÖ¤Ê§°Ü", 22, 0);
+                    send(client_socket, "ERROR:  Ä¼   Ö¤Ê§  ", 22, 0);
                 }
             } else {
-                send(client_socket, "ERROR: ÎÄ¼þ´«Êä²»ÍêÕû", 24, 0);
+                send(client_socket, "ERROR:  Ä¼    ä²»    ", 24, 0);
                 remove(full_path);
             }
-            
         } else if (strncmp(buffer, "load ", 5) == 0) {
             char user[256] = {0}, filename[256] = {0};
             sscanf(buffer + 5, "%255s %255s", user, filename);
-            
             if (strlen(user) == 0 || strlen(filename) == 0) {
-                send(client_socket, "ERROR: ÃüÁî¸ñÊ½´íÎó", 22, 0);
+                send(client_socket, "ERROR:      Ê½    ", 22, 0);
                 continue;
             }
-            
             if (strcmp(user, username) != 0) {
-                send(client_socket, "ERROR: Ö»ÄÜÏÂÔØ×Ô¼ºµÄÎÄ¼þ", 28, 0);
+                send(client_socket, "ERROR: Ö»       Ô¼    Ä¼ ", 28, 0);
                 continue;
             }
-            
             char full_path[512];
             sprintf(full_path, "%s/%s/%s", SERVER_FILES_DIR, user, filename);
-            
             struct _stat st;
             if (_stat(full_path, &st) != 0) {
-                send(client_socket, "ERROR: ÎÄ¼þ²»´æÔÚ", 20, 0);
+                send(client_socket, "ERROR:  Ä¼       ", 20, 0);
                 continue;
             }
-            
             uint64_t file_size = st.st_size;
-            printf("[%s] ·¢ËÍÎÄ¼þ: %s, ´óÐ¡: %s\n", 
+            printf("[%s]      Ä¼ : %s,   Ð¡: %s\n", 
                    user, filename, get_file_size_string(file_size));
-            
-            // ·¢ËÍ×¼±¸¾ÍÐ÷
             send(client_socket, "OK ready", 8, 0);
-            
-            // ·¢ËÍÎÄ¼þ´óÐ¡
             uint64_t file_size_net = htonll(file_size);
             send(client_socket, (char*)&file_size_net, 8, 0);
-            
-            // ·¢ËÍÎÄ¼þÊý¾Ý
             FILE *fp = fopen(full_path, "rb");
             if (!fp) {
-                send(client_socket, "ERROR: ÎÞ·¨´ò¿ªÎÄ¼þ", 22, 0);
+                send(client_socket, "ERROR:  Þ·    Ä¼ ", 22, 0);
                 continue;
             }
-            
             char file_buffer[BUFFER_SIZE];
             uint64_t sent = 0;
-            
             while (sent < file_size) {
                 uint64_t remaining = file_size - sent;
                 int to_send = (remaining > BUFFER_SIZE) ? BUFFER_SIZE : (int)remaining;
@@ -558,85 +434,69 @@ void client_thread(void *param) {
                 if (actual <= 0) break;
                 sent += actual;
             }
-            
             fclose(fp);
-            
             if (sent == file_size) {
-                printf("[%s] ÎÄ¼þ·¢ËÍ³É¹¦: %s\n", user, filename);
+                printf("[%s]  Ä¼    Í³É¹ : %s\n", user, filename);
             } else {
-                printf("[%s] ÎÄ¼þ·¢ËÍ²»ÍêÕû: %s\n", user, filename);
+                printf("[%s]  Ä¼    Í²     : %s\n", user, filename);
             }
-            
         } else if (strncmp(buffer, "space ", 6) == 0) {
             char user[256] = {0};
             sscanf(buffer + 6, "%255s", user);
-            
             if (strlen(user) == 0) {
                 strcpy(user, username);
             }
-            
             if (!is_valid_username(user)) {
-                send(client_socket, "ERROR: ÓÃ»§ÃûÎÞÐ§", 20, 0);
+                send(client_socket, "ERROR:  Ã»     Ð§", 20, 0);
                 continue;
             }
-            
             char space_info[512];
             get_user_space_info(user, space_info, sizeof(space_info));
-            
             send(client_socket, "OK", 2, 0);
             uint64_t len = strlen(space_info);
             uint64_t net_len = htonll(len);
             send(client_socket, (char*)&net_len, 8, 0);
             send(client_socket, space_info, len, 0);
-            
         } else if (strncmp(buffer, "whoami", 6) == 0) {
             char response[256];
-            sprintf(response, "µ±Ç°ÓÃ»§: %s", username);
+            sprintf(response, "  Ç° Ã» : %s", username);
             send(client_socket, response, strlen(response), 0);
-            
         } else if (strncmp(buffer, "logout", 6) == 0) {
-            send(client_socket, "×¢Ïú³É¹¦", 12, 0);
+            send(client_socket, "×¢   É¹ ", 12, 0);
             break;
-            
         } else if (strncmp(buffer, "exit", 4) == 0) {
             send(client_socket, "BYE", 3, 0);
             break;
-            
         } else if (strncmp(buffer, "help", 4) == 0) {
             char help_msg[] = 
-                "¿ÉÓÃÃüÁî:\n"
-                "  register username email password  - ×¢²áÓÃ»§\n"
-                "  login username password          - µÇÂ¼\n"
-                "  save username filename           - ÉÏ´«ÎÄ¼þ (ÓÃ»§¿Õ¼äÏÞÖÆ: 1GB)\n"
-                "  load username filename           - ÏÂÔØÎÄ¼þ\n"
-                "  list username                    - ²é¿´ÎÄ¼þÁÐ±íºÍ¿Õ¼äÊ¹ÓÃÇé¿ö\n"
-                "  space username                   - ²é¿´ÓÃ»§¿Õ¼äÊ¹ÓÃÇé¿ö\n"
-                "  whoami                           - ÏÔÊ¾µ±Ç°µÇÂ¼ÓÃ»§\n"
-                "  logout                           - ×¢ÏúµÇÂ¼\n"
-                "  exit                             - ÍË³ö\n"
-                "  help                             - ÏÔÊ¾°ïÖú";
-            
+                "        :\n"
+                "  register username email password  - ×¢   Ã» \n"
+                "  login username password          -   Â¼\n"
+                "  save username filename           -  Ï´  Ä¼  ( Ã»  Õ¼     : 1GB)\n"
+                "  load username filename           -      Ä¼ \n"
+                "  list username                    -  é¿´ Ä¼  Ð± Í¿Õ¼ Ê¹     \n"
+                "  space username                   -  é¿´ Ã»  Õ¼ Ê¹     \n"
+                "  whoami                           -   Ê¾  Ç°  Â¼ Ã» \n"
+                "  logout                           - ×¢    Â¼\n"
+                "  exit                             -  Ë³ \n"
+                "  help                             -   Ê¾    ";
             send(client_socket, "OK", 2, 0);
             uint64_t len = strlen(help_msg);
             uint64_t net_len = htonll(len);
             send(client_socket, (char*)&net_len, 8, 0);
             send(client_socket, help_msg, len, 0);
-            
         } else {
-            send(client_socket, "ERROR: Î´ÖªÃüÁî", 18, 0);
+            send(client_socket, "ERROR: Î´Öª    ", 18, 0);
         }
     }
-    
     closesocket(client_socket);
     _endthread();
 }
-
 int main() {
     WSADATA wsaData;
     SOCKET server_socket, client_socket;
     struct sockaddr_in server_addr, client_addr;
     int addr_len = sizeof(client_addr);
-    
     printf("Initializing Winsock...\n");
     if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
         printf("Winsock initialization failed. Error: %d\n", WSAGetLastError());
@@ -644,7 +504,6 @@ int main() {
     }
     printf("Winsock initialized: version %d.%d\n", 
            LOBYTE(wsaData.wVersion), HIBYTE(wsaData.wVersion));
-    
     server_socket = socket(AF_INET, SOCK_STREAM, 0);
     if (server_socket == INVALID_SOCKET) {
         printf("Socket creation failed. Error: %d\n", WSAGetLastError());
@@ -652,11 +511,9 @@ int main() {
         return 1;
     }
     printf("Socket created successfully\n");
-    
     server_addr.sin_family = AF_INET;
     server_addr.sin_addr.s_addr = INADDR_ANY;
     server_addr.sin_port = htons(PORT);
-    
     if (bind(server_socket, (struct sockaddr*)&server_addr, sizeof(server_addr)) == SOCKET_ERROR) {
         printf("Bind failed. Error: %d\n", WSAGetLastError());
         closesocket(server_socket);
@@ -664,39 +521,31 @@ int main() {
         return 1;
     }
     printf("Bind successful on port %d\n", PORT);
-    
     listen(server_socket, 3);
     printf("=====================================\n");
-    printf("¶à¿Í»§¶ËÎÄ¼þ´«Êä·þÎñÆ÷ 1.0\n");
-    printf("¼àÌý¶Ë¿Ú: %d\n", PORT);
-    printf("ÎÄ¼þ´æ´¢Â·¾¶: %s/\n", SERVER_FILES_DIR);
-    printf("ÓÃ»§Êý¾Ý¿â: %s\n", USER_DB_FILE);
-    printf("ÓÃ»§¿Õ¼äÏÞÖÆ: 1.00 GB Ã¿ÈË\n");
-    printf("Ö§³Ö¶à¿Í»§¶ËÍ¬Ê±Á¬½Ó\n");
-    printf("µÈ´ý¿Í»§¶ËÁ¬½Ó...\n");
+    printf("  Í»    Ä¼           1.0\n");
+    printf("     Ë¿ : %d\n", PORT);
+    printf(" Ä¼  æ´¢Â·  : %s/\n", SERVER_FILES_DIR);
+    printf(" Ã»    Ý¿ : %s\n", USER_DB_FILE);
+    printf(" Ã»  Õ¼     : 1.00 GB Ã¿  \n");
+    printf("Ö§ Ö¶ Í»   Í¬Ê±    \n");
+    printf(" È´  Í»       ...\n");
     printf("=====================================\n");
-    
-    // ´´½¨·þÎñÆ÷Ä¿Â¼
     _mkdir(SERVER_FILES_DIR);
-    
     while (1) {
         client_socket = accept(server_socket, (struct sockaddr*)&client_addr, &addr_len);
         if (client_socket == INVALID_SOCKET) {
             printf("Accept failed. Error: %d\n", WSAGetLastError());
             continue;
         }
-        
         ClientInfo *info = (ClientInfo *)malloc(sizeof(ClientInfo));
         if (info == NULL) {
             printf("Memory allocation failed\n");
             closesocket(client_socket);
             continue;
         }
-        
         info->client_socket = client_socket;
         info->client_addr = client_addr;
-        
-        // ÎªÃ¿¸ö¿Í»§¶Ë´´½¨Ò»¸öÐÂÏß³Ì
         HANDLE thread = (HANDLE)_beginthread(client_thread, 0, (void*)info);
         if (thread == (HANDLE)-1) {
             printf("Failed to create thread\n");
@@ -706,7 +555,6 @@ int main() {
             CloseHandle(thread);
         }
     }
-    
     closesocket(server_socket);
     WSACleanup();
     return 0;
